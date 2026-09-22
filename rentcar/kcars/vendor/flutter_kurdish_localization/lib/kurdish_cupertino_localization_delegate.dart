@@ -314,6 +314,24 @@ class KurdishCupertinoLocalizations extends GlobalCupertinoLocalizations {
   @override
   String get selectAllButtonLabel => r'دیاریکردنی هەموو';
 
+  @override
+  String get collapsedHint => r'فراوانکراوە';
+
+  @override
+  String get expandedHint => r'داخراوە';
+
+  @override
+  String get expansionTileCollapsedHint => r'دوو جار کرتە بکە بۆ فراوانکردن';
+
+  @override
+  String get expansionTileCollapsedTapHint => r'بۆ وردەکاری زیاتر فراوانی بکە';
+
+  @override
+  String get expansionTileExpandedHint => r'دوو جار کرتە بکە بۆ داخستن';
+
+  @override
+  String get expansionTileExpandedTapHint => r'داخستن';
+
   static const LocalizationsDelegate<CupertinoLocalizations> delegate =
       KurdishCupertinoLocalizationsDelegate();
 

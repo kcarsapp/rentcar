@@ -20,7 +20,9 @@ export default (router: Router) => {
   router.post(
     `${api}/nearBayCars`,
     asyncErrorHandler(isAuthenticated({ required: false })),
-    validateSchema(Schema.LocationSchema),
+    // Location is optional on the home screen. iOS may not have a location
+    // fix yet; let the endpoint return an empty section instead of a 400.
+    validateSchema(Schema.LocationSchema.partial()),
     asyncErrorHandler(Controller.nearBayCars),
   );
 
@@ -40,7 +42,8 @@ export default (router: Router) => {
 
   router.post(
     `${api}/recentlyViewed`,
-    asyncErrorHandler(isAuthenticated()),
+    // Anonymous visitors simply have no recently-viewed cars yet.
+    asyncErrorHandler(isAuthenticated({ required: false })),
     asyncErrorHandler(Controller.recentlyViewed),
   );
 
@@ -198,6 +201,11 @@ export default (router: Router) => {
     `${api}/sliders`,
     asyncErrorHandler(isAuthenticated({ required: false })),
     asyncErrorHandler(Controller.sliders),
+  );
+  router.post(
+    `${api}/featuredCars`,
+    asyncErrorHandler(isAuthenticated({ required: false })),
+    asyncErrorHandler(Controller.featuredCars),
   );
   router.post(
     `${api}/slider`,

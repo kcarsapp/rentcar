@@ -31,13 +31,8 @@ class SlidesViwe extends HookConsumerWidget {
       child: sldiersAsync.when(
         data: (data) {
           if (data.isEmpty) {
-            return Container(
-              margin: EdgeInsets.symmetric(horizontal: 4.w),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(2.w),
-                color: context.surfaceContainerLowest,
-              ),
-            );
+            // The website does not reserve space when there are no slides.
+            return const SizedBox.shrink();
           }
           return Stack(
             alignment: Alignment.bottomCenter,

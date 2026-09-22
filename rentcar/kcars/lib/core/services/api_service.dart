@@ -53,6 +53,10 @@ class ApiService {
           message: LocaleKeys.alertMessages_netWorkError.tr(),
         );
       } catch (e) {
+        // Preserve the server's status/message. Previously every ApiException
+        // was caught again here and replaced by the vague "something went
+        // wrong" text, which made chat failures impossible to diagnose.
+        if (e is ApiException) rethrow;
         throw ApiException(
           statusCode: 500,
           message: LocaleKeys.alertMessages_someThingWentWrong.tr(),

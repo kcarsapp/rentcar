@@ -86,6 +86,10 @@ class NewEditCarScreen extends HookConsumerWidget {
       (plan) => plan.periodType == RentalPeriodType.monthly,
     );
 
+    final weekly = plans?.firstWhereOrNull(
+      (plan) => plan.periodType == RentalPeriodType.weekly,
+    );
+
     final hourlyPlan = useState(
       car?.rentalPlan?.firstWhereOrNull(
         (rent) => rent.periodType == RentalPeriodType.hourly,
@@ -104,6 +108,12 @@ class NewEditCarScreen extends HookConsumerWidget {
       ),
     );
 
+    final weeklyPlan = useState(
+      car?.rentalPlan?.firstWhereOrNull(
+        (rent) => rent.periodType == RentalPeriodType.weekly,
+      ),
+    );
+
     final latLong = useState<LatLng?>(
       car?.location?.lat == null
           ? null
@@ -112,7 +122,7 @@ class NewEditCarScreen extends HookConsumerWidget {
 
     void onSelectMap(TapPosition tap, LatLng ltlg) {
       latLong.value = ltlg;
-      location.value = location.value?.copyWith(
+      location.value = (location.value ?? CarLocation()).copyWith(
         lat: ltlg.latitude,
         long: ltlg.longitude,
       );
@@ -411,6 +421,59 @@ class NewEditCarScreen extends HookConsumerWidget {
                   ),
                   ListTile(
                     onTap: () async {
+                      if (weekly == null || weeklyPlan.value != null) return;
+                      final newWeeklyPlan = await context.router.push(
+                        NewRentalPlanRoute(
+                          rentalPlan: weeklyPlan.value,
+                          plan: weekly,
+                        ),
+                      );
+                      if (newWeeklyPlan != null) {
+                        weeklyPlan.value = newWeeklyPlan as RentalPlan;
+                        newRental.value.add(
+                          newWeeklyPlan.copyWith(plan: null),
+                        );
+                      }
+                    },
+                    dense: true,
+                    title: Text(
+                      weeklyPlan.value != null
+                          ? "${weeklyPlan.value?.price.forMatNumber() ?? ""} ${weeklyPlan.value?.currency?.getCurrency() ?? ""}"
+                          : "${LocaleKeys.buttons_add.tr()} ${LocaleKeys.rentalPeriodType_weekly.tr()}",
+                    ),
+                    trailing: weeklyPlan.value != null
+                        ? IconButton(
+                            onPressed: () {
+                              if (weeklyPlan.value?.id != "") {
+                                deletedPreviousRental.value.add(
+                                  weeklyPlan.value!.copyWith(plan: null),
+                                );
+                              }
+                              weeklyPlan.value = null;
+                              newRental.value = newRental.value
+                                  .where(
+                                    (rent) =>
+                                        rent.periodType !=
+                                        RentalPeriodType.weekly,
+                                  )
+                                  .toList();
+                            },
+                            icon: Icon(Icons.close, size: 6.w),
+                          )
+                        : SizedBox.shrink(),
+                    subtitle: Row(
+                      children: [
+                        Text(weeklyPlan.value?.periodType.periodPerType() ?? ""),
+                        Gap(2.w),
+                        Text(weeklyPlan.value?.min?.forMatNumber() ?? ""),
+                        Text(
+                          " - ${weeklyPlan.value?.max?.forMatNumber() ?? ""}",
+                        ),
+                      ],
+                    ),
+                  ),
+                  ListTile(
+                    onTap: () async {
                       if (monthly == null || monthlyPlan.value != null) return;
                       final newMonthlyPlan = await context.router.push(
                         NewRentalPlanRoute(
@@ -633,20 +696,9 @@ class NewEditCarScreen extends HookConsumerWidget {
                       return;
                     }
                   }
-                  if (city.value == null) {
-                    showMessages(
-                      context,
-                      message: LocaleKeys.alertMessages_selectCity.tr(),
-                    );
-                    return;
-                  }
-                  if (latLong.value == null) {
-                    showMessages(
-                      context,
-                      message: LocaleKeys.alertMessages_addLocation.tr(),
-                    );
-                    return;
-                  }
+                  // Location is optional in the web form. Keep the picker
+                  // available for owners who want map discovery, but do not
+                  // block publishing when no city or coordinates are set.
                   if (fuel.value == null) {
                     showMessages(
                       context,
@@ -678,7 +730,10 @@ class NewEditCarScreen extends HookConsumerWidget {
                     return;
                   }
                   if (car != null) {
-                    if (dailyPlan.value == null && hourlyPlan.value == null) {
+                    if (dailyPlan.value == null &&
+                        hourlyPlan.value == null &&
+                        weeklyPlan.value == null &&
+                        monthlyPlan.value == null) {
                       showMessages(
                         context,
                         message: LocaleKeys.alertMessages_addPlan.tr(),
@@ -720,16 +775,18 @@ class NewEditCarScreen extends HookConsumerWidget {
                       odometer: int.tryParse(odometer.text),
                       engCC: double.tryParse(engCC.text),
                     ),
-                    location: (car?.location ?? CarLocation()).copyWith(
-                      id: car?.location?.id,
-                      cityId: city.value?.id,
-                      townId: location.value?.townId,
-                      lat: latLong.value?.latitude,
-                      long: latLong.value?.longitude,
-                      city: city.value,
-                      town: town.value,
-                      companyId: null,
-                    ),
+                    location: location.value == null && car?.location == null
+                        ? null
+                        : (car?.location ?? CarLocation()).copyWith(
+                            id: car?.location?.id,
+                            cityId: city.value?.id,
+                            townId: location.value?.townId,
+                            lat: latLong.value?.latitude,
+                            long: latLong.value?.longitude,
+                            city: city.value,
+                            town: town.value,
+                            companyId: null,
+                          ),
                   );
                   final controller = ref.read(carControllerProvider.notifier);
                   if (car == null) {

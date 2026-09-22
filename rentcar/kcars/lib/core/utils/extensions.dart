@@ -37,6 +37,12 @@ extension ThemeExtension on BuildContext {
   Color get surfaceContainerLowest => baseColor.surfaceContainerLowest;
   Color get surfaceContainer => baseColor.surfaceContainer;
 
+  /// Shared low-contrast surface used by the refreshed public cards.
+  Color get hairline => baseColor.outlineVariant;
+
+  /// Neutral image/card placeholder color used by the refreshed public UI.
+  Color get photoPlaceholder => baseColor.surfaceContainerLow;
+
   Color get disabled => Theme.of(this).disabledColor;
 
   Color get surfaceTint => baseColor.surfaceTint;
@@ -94,6 +100,9 @@ extension ThemeExtension on BuildContext {
 
   TextStyle get overline =>
       baseText.copyWith(fontWeight: FontWeight.w400, fontSize: 14.sp);
+
+  /// Compact numeric style used for prices and vehicle specifications.
+  TextStyle get mono => label.copyWith(fontFamily: 'jetbrains-mono');
 }
 
 extension FomratDate on DateTime {

@@ -237,9 +237,9 @@
   "labels": {
     "iqd": "دینار",
     "status": "دۆخ",
-    "suggested": "پێشنیارکراو",
-    "recentlyViewed": "دواین بینراو",
-    "nearby": "دەوروبەری من",
+    "suggested": "پێشنیارەکان بۆ تۆ",
+    "recentlyViewed": "دواین بینراوەکان",
+    "nearby": "سەیارەکانی نزیکت",
     "fuel": "سوتەمەنی",
     "transmission": "گێڕ",
     "brand": "بڕاند",
@@ -434,7 +434,7 @@
     "searchusers": "گەڕان بۆ بەکارهێنەران",
     "searchBooks": "گەڕان بۆ حجزەکان",
     "writeReview": "پێداچوونەوە بنووسە",
-    "searchCar": "ژمارەی ئۆتۆمبێل بنووسە"
+    "searchCar": "گەڕان"
   },
   "helpers": {
     "countryCode": "تکایە هێمای + مەنووسە لەپێش کۆدی وڵات"

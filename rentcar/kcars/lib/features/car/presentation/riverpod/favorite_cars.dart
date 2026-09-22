@@ -32,7 +32,11 @@ class FavoriteCars extends _$FavoriteCars {
     final result = await _carRepo.favoriteCars();
 
     result.fold(
-      (l) => state = state.copyWith(error: l.message, isLoading: false),
+      (l) => state = state.copyWith(
+        error: l.message,
+        isLoading: false,
+        initalLoading: false,
+      ),
       (r) {
         final hasMore = r.isNotEmpty;
         state = state.copyWith(

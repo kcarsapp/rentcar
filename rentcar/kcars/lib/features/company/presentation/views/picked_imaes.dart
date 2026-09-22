@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:image_picker/image_picker.dart';
@@ -58,14 +59,15 @@ class _PcikedImagesScreenState extends State<PcikedImagesScreen> {
             aspectRatio: widget.isPost ? 16 / 9 : 1 / 1,
             child: Stack(
               children: [
-                Platform.isIOS
-                    ? Image.asset(
-                        images[index].path,
-                        fit: BoxFit.cover,
-                        width: 40.w,
-                        height: 30.w,
-                      )
-                    : Image.file(File(images[index].path)),
+                // XFile paths are local files on both iOS and Android. Using
+                // Image.asset on iOS made selected photos appear blank and
+                // caused the publish form to fail validation visually.
+                Image.file(
+                  File(images[index].path),
+                  fit: BoxFit.cover,
+                  width: 40.w,
+                  height: 30.w,
+                ),
                 Positioned(
                   top: 1.w,
                   left: 1.w,
@@ -261,8 +263,13 @@ class _EditPcikerImageServiceScreenState
                             images[index],
                           );
                           if (source == ImageSourceType.network) {
-                            widget.deletedImages(prevImages[index]);
-                            prevImages.removeAt(index);
+                            final previousIndex = prevImages.indexWhere(
+                              (image) => image.image == images[index],
+                            );
+                            if (previousIndex >= 0) {
+                              widget.deletedImages(prevImages[previousIndex]);
+                              prevImages.removeAt(previousIndex);
+                            }
                           }
                           setState(() {
                             newImages = newImages
@@ -295,7 +302,28 @@ class _EditPcikerImageServiceScreenState
                 padding: EdgeInsets.symmetric(horizontal: 2.w),
                 scrollDirection: Axis.horizontal,
                 shrinkWrap: true,
-                onReorder: (int oldIndex, int newIndex) {},
+                onReorder: (int oldIndex, int newIndex) {
+                  if (oldIndex >= images.length) return;
+                  if (newIndex > images.length) newIndex = images.length;
+                  if (oldIndex < newIndex) newIndex -= 1;
+                  if (oldIndex == newIndex) return;
+                  setState(() {
+                    final image = images.removeAt(oldIndex);
+                    images.insert(newIndex, image);
+                    final reorderedNewImages = <XFile>[];
+                    for (final path in images) {
+                      final match = newImages.firstWhereOrNull(
+                        (file) => file.path == path,
+                      );
+                      if (match != null) reorderedNewImages.add(match);
+                    }
+                    newImages = reorderedNewImages;
+                  });
+                  // Keep newly-added files in the request. Existing images are
+                  // already stored on the server; their order is reflected in
+                  // the editor immediately and is preserved on the next save.
+                  widget.selectedImages(newImages);
+                },
                 children: cards.isEmpty
                     ? [
                         ImagePickerButton(

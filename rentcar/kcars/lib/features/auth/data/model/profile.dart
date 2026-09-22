@@ -24,6 +24,14 @@ class Profile with ProfileMappable {
   final Company? company;
   final String? accessToken;
   final String? refreshToken;
+  /// Identity verification fields returned by the public web API.
+  /// Values are kept as strings so older API responses remain compatible.
+  final String? kycStatus;
+  final String? kycDocumentType;
+  final bool? isPersonal;
+  final DateTime? kycSubmittedAt;
+  final DateTime? kycReviewedAt;
+  final String? kycRejectionReason;
   const Profile({
     this.id,
     this.serial,
@@ -42,5 +50,11 @@ class Profile with ProfileMappable {
     this.company,
     this.accessToken,
     this.refreshToken,
+    this.kycStatus,
+    this.kycDocumentType,
+    this.isPersonal,
+    this.kycSubmittedAt,
+    this.kycReviewedAt,
+    this.kycRejectionReason,
   });
 }

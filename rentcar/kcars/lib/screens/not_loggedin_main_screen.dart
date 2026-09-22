@@ -33,6 +33,7 @@ class NotLoggedInMainScreen extends ConsumerWidget {
           initialValue: 1,
         ).drive(Tween(begin: const Offset(0, 1), end: Offset.zero)),
         child: CustomBottomNavigationBar(
+          activeIndex: tab.activeIndex,
           onTap: (index) {
             if (index == 3) {
               context.router.push(LoginRoute());

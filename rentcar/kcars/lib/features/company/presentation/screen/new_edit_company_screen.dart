@@ -208,14 +208,6 @@ class NewEditCompanyScreen extends HookConsumerWidget {
                 value: available.value,
                 onChanged: (v) => available.value = v!,
               ),
-              CheckboxListTile.adaptive(
-                dense: true,
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-                title: Text(LocaleKeys.buttons_international.tr()),
-                value: inl.value,
-                onChanged: (v) => inl.value = v!,
-              ),
               Gap(4.w),
               PrimaryButton(
                 isLoading: controller is NewCompanyLoading,

@@ -20,8 +20,12 @@ import 'package:kcars/features/auth/presentation/riverpod/auth_controller.dart';
 import 'package:kcars/features/auth/presentation/riverpod/auth_states.dart';
 import 'package:kcars/features/auth/presentation/riverpod/current_user_controller.dart';
 import 'package:kcars/features/company/presentation/views/profile_picture.dart';
+import 'package:kcars/features/car/presentation/screens/favorite_screen.dart';
 import 'package:kcars/features/user/presentation/riverpod/user_notification.dart';
 import 'package:kcars/features/user/presentation/view/supports_view.dart';
+import 'package:kcars/features/user/presentation/screen/kyc_screen.dart';
+import 'package:kcars/features/listing/listing_service.dart';
+import 'package:kcars/features/listing/listing_screens.dart';
 import 'package:kcars/translations/locale_keys.g.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:sizer/sizer.dart';
@@ -33,6 +37,15 @@ class SettingsScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserControllerProvider);
     final authController = ref.watch(authControllerProvider);
+    useEffect(() {
+      // Refresh eligibility when Settings opens, including approvals made on the web.
+      Future.microtask(() {
+        if (context.mounted) {
+          ref.read(authControllerProvider.notifier).refreesh();
+        }
+      });
+      return null;
+    }, const []);
 
     ref.listen(authControllerProvider, (prev, next) {
       if (next is LogoutCompleted || next is DeleteAccountCompleted) {
@@ -66,6 +79,8 @@ class SettingsScreen extends HookConsumerWidget {
 
           child: user.when(
             data: (data) {
+              final kycApproved =
+                  data?.kycStatus?.trim().toLowerCase() == 'approved';
               return Column(
                 children: [
                   ProfilePicture(
@@ -84,6 +99,24 @@ class SettingsScreen extends HookConsumerWidget {
                   ),
                   Gap(2.w),
                   Text(data?.name ?? "", style: context.label2SemiBold),
+                  if (data?.kycStatus == 'approved') ...[
+                    Gap(1.w),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.verified,
+                          color: Colors.blue,
+                          size: 18,
+                        ),
+                        SizedBox(width: 1.w),
+                        const Text(
+                          'KYC verified',
+                          style: TextStyle(color: Colors.blue),
+                        ),
+                      ],
+                    ),
+                  ],
                   Gap(10.w),
                   SettingTile(
                     lable: LocaleKeys.buttons_profile.tr(),
@@ -91,6 +124,67 @@ class SettingsScreen extends HookConsumerWidget {
                     onTap: () {
                       context.router.push(EditProfileRoute(profile: data!));
                     },
+                  ),
+                  Gap(2.w),
+                  if (canManageListings(data)) ...[
+                    SettingTile(
+                      lable: personalOwner(data!) ? 'My cars' : 'Company cars',
+                      icon: AppIcons.car,
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () =>
+                          Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute(
+                              builder: (_) => MyCarsScreen(profile: data),
+                            ),
+                          ),
+                    ),
+                    Gap(2.w),
+                  ],
+                  SettingTile(
+                    lable: 'Favorites',
+                    icon: AppIcons.heart,
+                    onTap: () {
+                      // Open the actual Favorites screen above the tab shell.
+                      Navigator.of(context, rootNavigator: true).push(
+                        MaterialPageRoute(
+                          builder: (_) => const FavoriteScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  Gap(2.w),
+                  SettingTile(
+                    lable: kycApproved
+                        ? 'Identity verified'
+                        : 'Verify identity (KYC)',
+                    icon: AppIcons.check,
+                    trailing: kycApproved
+                        ? Icon(
+                            Icons.verified_rounded,
+                            color: Colors.blue,
+                            size: 6.w,
+                          )
+                        : null,
+                    onTap: kycApproved
+                        ? () => showCustomAlert(
+                            context,
+                            title: 'Identity verified',
+                            content:
+                                'Your KYC documents have been approved. You can post cars and book cars.',
+                            primaryButtonText: 'Done',
+                          )
+                        : () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const KycScreen(),
+                              ),
+                            );
+                            if (context.mounted) {
+                              await ref
+                                  .read(authControllerProvider.notifier)
+                                  .refreesh();
+                            }
+                          },
                   ),
                   Gap(2.w),
                   SettingTile(

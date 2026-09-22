@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CursorSchema, uuidShcemaNullable, uuidV7 } from './common';
+import { CursorSchema, idValue, uuidShcemaNullable, uuidV7 } from './common';
 import {
   FuelSchema,
   RentalPlanSchema,
@@ -10,7 +10,9 @@ import * as Schema from '../../src/generated/zod';
 
 export const CarFilterSchema = z.object({
   brandId: uuidV7.optional(),
-  companyId: uuidV7.optional(),
+  // Mobile builds in the wild send either the current UUID primary key or
+  // the legacy CUID2 company identifier returned as `companyId`.
+  companyId: idValue.optional(),
   minPrice: z.number().optional(),
   maxPrice: z.number().optional(),
   minYear: z.number().optional(),
@@ -106,10 +108,11 @@ export const ReviewCurosrSchema = CursorSchema.extend({
 export type ReviewCurosrPayload = z.infer<typeof ReviewCurosrSchema>;
 
 export const CarCompanySchema = z.object({
-  cursor: uuidV7.nullable(),
-  companyId: uuidV7,
-  type: uuidV7.nullable(),
-  brand: uuidV7.nullable(),
+  cursor: idValue.nullable().optional(),
+  // Older mobile builds send the legacy Company.companyId CUID2 here.
+  companyId: idValue,
+  type: idValue.nullable().optional(),
+  brand: idValue.nullable().optional(),
 });
 
 export type CarCompanyPayload = z.infer<typeof CarCompanySchema>;

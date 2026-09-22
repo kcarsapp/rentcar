@@ -237,9 +237,9 @@
   "labels": {
     "iqd": "IQD",
     "status": "Status",
-    "suggested": "Suggested",
-    "recentlyViewed": "Recently Viewed",
-    "nearby": "Nearby",
+    "suggested": "Recommended for you",
+    "recentlyViewed": "Recently viewed",
+    "nearby": "Cars near you",
     "fuel": "Fuel",
     "transmission": "Transmission",
     "brand": "Brand",
@@ -434,7 +434,7 @@
     "searchusers": "Search for users",
     "searchBooks": "Search for reservation",
     "writeReview": "Write a review",
-    "searchCar": "Enter carId only"
+    "searchCar": "Search"
   },
   "helpers": {
     "countryCode": "Don’t add + before country code"

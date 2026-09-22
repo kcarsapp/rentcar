@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:kcars/configs/image_type.dart';
+import 'package:kcars/core/ui/ios_interactions.dart';
 import 'package:kcars/core/utils/extensions.dart';
 import 'package:kcars/core/widget/image_holder.dart';
 import 'package:kcars/features/car/data/model/image.dart';
@@ -16,6 +17,7 @@ class CarousalView extends HookConsumerWidget {
     required this.sliders,
     this.imageWidth,
     this.imageHeight,
+    this.heroTag,
   });
   final CarouselSliderController carouselController =
       CarouselSliderController();
@@ -23,6 +25,7 @@ class CarousalView extends HookConsumerWidget {
   final List<Images> sliders;
   final double? imageWidth;
   final double? imageHeight;
+  final String? heroTag;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedSlider = useState(0);
@@ -52,6 +55,7 @@ class CarousalView extends HookConsumerWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
+                    AppHaptics.lightTap();
                     SwipeImageGallery(
                       context: context,
                       initialIndex: index,
@@ -71,11 +75,20 @@ class CarousalView extends HookConsumerWidget {
                   child: ClipRRect(
                     child: AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: ImageHolder(
-                        image: slider.image,
-                        type: ImageType.car,
-                        fit: BoxFit.cover,
-                      ),
+                      child: heroTag != null && index == 0
+                          ? Hero(
+                              tag: heroTag!,
+                              child: ImageHolder(
+                                image: slider.image,
+                                type: ImageType.car,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : ImageHolder(
+                              image: slider.image,
+                              type: ImageType.car,
+                              fit: BoxFit.cover,
+                            ),
                     ),
                   ),
                 ),

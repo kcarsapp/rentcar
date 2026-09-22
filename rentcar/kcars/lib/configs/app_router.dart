@@ -24,6 +24,7 @@ class AppRouter extends RootStackRouter {
           ],
         ),
         AutoRoute(page: FavoriteRoute.page),
+        AutoRoute(page: ChatRoute.page),
         AutoRoute(page: AllCompaniesRoute.page),
         AutoRoute(page: SettingsRoute.page),
       ],

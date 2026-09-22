@@ -236,9 +236,9 @@
   "labels": {
     "iqd": "دينار",
     "status": "الحالة",
-    "suggested": "مقترح",
-    "recentlyViewed": "تمت مشاهدته مؤخرًا",
-    "nearby": "بالقرب",
+    "suggested": "موصى بها لك",
+    "recentlyViewed": "شوهدت مؤخرًا",
+    "nearby": "سيارات قريبة منك",
     "fuel": "وقود",
     "transmission": "ناقل الحركة",
     "brand": "العلامة التجارية",
@@ -433,7 +433,7 @@
     "searchusers": "ابحث عن المستخدمين",
     "searchBooks": "ابحث عن الحجز",
     "writeReview": "اكتب مراجعة",
-    "searchCar": "أدخل رقم السيارة فقط"
+    "searchCar": "البحث"
   },
   "helpers": {
     "countryCode": "لا تضف + قبل رمز البلد"

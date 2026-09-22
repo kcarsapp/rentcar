@@ -8,7 +8,6 @@ import 'package:kcars/core/services/app_icons.dart';
 import 'package:kcars/core/utils/extensions.dart';
 import 'package:kcars/core/widget/buttons.dart';
 import 'package:kcars/core/widget/icon_loader.dart';
-import 'package:kcars/core/widget/loading_emoty_state.dart';
 import 'package:kcars/features/auth/presentation/riverpod/is_logged_in.dart';
 import 'package:kcars/features/car/presentation/riverpod/nearby_cars.dart';
 import 'package:kcars/features/car/presentation/widget/car_widget_view.dart';
@@ -24,6 +23,8 @@ class NearbayCarsView extends ConsumerWidget {
     final isLoggedIn = ref.watch(isLoggedInProvider);
     return hasLocationPermission.when(
       data: (isGranted) {
+        // The web home silently omits Nearby when location is unavailable.
+        if (!isGranted) return const SizedBox.shrink();
         return SizedBox(
           height: 70.w,
           child: Column(
@@ -38,12 +39,7 @@ class NearbayCarsView extends ConsumerWidget {
                 ),
               ),
               Gap(4.w),
-              isGranted
-                  ? _NearbyCarsList(
-                      isLoading: isLoggedIn,
-                      isLoggedIn: isLoggedIn,
-                    )
-                  : const EnableLocationPrompt(),
+              _NearbyCarsList(isLoading: isLoggedIn, isLoggedIn: isLoggedIn),
             ],
           ),
         );
@@ -67,12 +63,9 @@ class _NearbyCarsList extends ConsumerWidget {
         final cars = ref.watch(nearbayCarsProvider(param));
         return cars.when(
           data: (data) => data.isEmpty
-              ? EmptyWidget(
-                  icon: AppIcons.noCars,
-                  emptyMessage: LocaleKeys.empty_emptyCarsAround.tr(),
-                )
+              ? const SizedBox.shrink()
               : CarWidget(cars: data, isLoggedIn: isLoggedIn),
-          error: (e, _) => Center(child: Text("$e")),
+          error: (e, _) => const SizedBox.shrink(),
           loading: () => CarWidget(isSkeleton: true),
         );
       },

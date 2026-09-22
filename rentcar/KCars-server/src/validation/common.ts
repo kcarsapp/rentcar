@@ -5,8 +5,13 @@ export const uuidV7Regex =
 
 export const uuidV7 = z.string().regex(uuidV7Regex, 'Invalid UUID v7 format');
 
+// The database contains both legacy CUID2 identifiers and newer UUID v7
+// identifiers. Mobile clients can legitimately send either format, so shared
+// request validators must accept both instead of rejecting valid car IDs.
+export const idValue = z.union([z.string().cuid2(), uuidV7]);
+
 export const IDV7schema = z.object({ id: uuidV7 });
-export const UserIdSchmea = z.object({ userId: z.string().cuid2() });
+export const UserIdSchmea = z.object({ userId: idValue });
 
 export const IDV7schemaOptiona = z
   .object({ id: uuidV7.nullable().optional() })
@@ -78,4 +83,4 @@ export const numberPreprocessing = z.preprocess((value) => {
   return value;
 }, z.number().default(0));
 
-export const CUID2 = z.object({ id: z.string().cuid2() });
+export const CUID2 = z.object({ id: idValue });

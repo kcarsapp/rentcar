@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:kcars/core/services/app_icons.dart';
-import 'package:kcars/core/utils/extensions.dart';
 import 'package:kcars/core/widget/loading_emoty_state.dart';
+import 'package:kcars/core/widget/section_header.dart';
 import 'package:kcars/features/auth/presentation/riverpod/is_logged_in.dart';
 import 'package:kcars/features/car/presentation/riverpod/recently_viewed.dart';
 import 'package:kcars/features/car/presentation/widget/car_widget_view.dart';
@@ -29,13 +29,7 @@ class RenecentlyViewdCarsView extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4.w),
-                  child: Text(
-                    LocaleKeys.labels_recentlyViewed.tr(),
-                    style: context.label2Bold,
-                  ),
-                ),
+                SectionHeader(title: LocaleKeys.labels_recentlyViewed.tr()),
                 Gap(4.w),
                 cars.when(
                   data: (data) {

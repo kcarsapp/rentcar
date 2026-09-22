@@ -13,6 +13,7 @@ import 'package:kcars/features/auth/presentation/riverpod/is_logged_in.dart';
 import 'package:kcars/features/car/data/model/car.dart';
 import 'package:kcars/features/car/presentation/riverpod/favorite_cars.dart';
 import 'package:kcars/features/car/presentation/widget/favroite_button.dart';
+import 'package:kcars/features/car/presentation/widget/brand_mark.dart';
 import 'package:kcars/translations/locale_keys.g.dart';
 import 'package:sizer/sizer.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -26,6 +27,16 @@ class FavoriteScreen extends StatefulHookConsumerWidget {
 }
 
 class _FavoriteScreenState extends ConsumerState<FavoriteScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Settings can open this screen after the provider was already kept alive.
+    // Always refresh so a favorite added from the detail page appears here.
+    Future.microtask(
+      () => ref.read(favoriteCarsProvider.notifier).loadInitial(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final carsData = ref.watch(favoriteCarsProvider);
@@ -77,7 +88,7 @@ class FavoriteCarCard extends StatelessWidget {
       child: GestureDetector(
         onTap: () {
           if (car != null) {
-            context.router.push(CarDetailsRoute(carId: car!.carId ?? ""));
+            context.router.push(CarDetailsRoute(carId: car!.carId ?? car!.id));
           }
         },
         child: Container(
@@ -137,6 +148,12 @@ class FavoriteCarCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (!isSkeleton)
+                    PositionedDirectional(
+                      bottom: 3.w,
+                      end: 3.w,
+                      child: BrandMark(brand: car?.brand, size: 9, dark: true),
+                    ),
                 ],
               ),
               Gap(2.w),
@@ -150,10 +167,20 @@ class FavoriteCarCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            isSkeleton ? "Loading..." : car?.title ?? "",
-                            style: context.label2SemiBold,
-                            maxLines: 2,
+                          Row(
+                            children: [
+                              if (!isSkeleton)
+                                BrandMark(brand: car?.brand, size: 5.5),
+                              if (!isSkeleton) SizedBox(width: 1.w),
+                              Expanded(
+                                child: Text(
+                                  isSkeleton ? "Loading..." : car?.title ?? "",
+                                  style: context.label2SemiBold,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                           Gap(1.w),
                           Row(

@@ -1,20 +1,22 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
+import 'package:flutter/rendering.dart';
 import 'package:kcars/configs/app_router.gr.dart';
 import 'package:kcars/configs/image_type.dart';
 import 'package:kcars/core/utils/extensions.dart';
+import 'package:kcars/core/ui/ios_interactions.dart';
 import 'package:kcars/core/widget/image_holder.dart';
 import 'package:kcars/features/car/data/model/car.dart';
 import 'package:kcars/features/car/data/model/post_location.dart';
-import 'package:kcars/features/car/presentation/widget/favroite_button.dart';
-import 'package:kcars/translations/locale_keys.g.dart';
+import 'package:kcars/features/car/presentation/widget/brand_mark.dart';
+import 'package:kcars/features/car/presentation/widget/car_context_preview.dart';
 import 'package:sizer/sizer.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:collection/collection.dart';
 
-class CarWidget extends StatelessWidget {
+class CarWidget extends StatefulWidget {
   const CarWidget({
     super.key,
     this.cars,
@@ -29,138 +31,228 @@ class CarWidget extends StatelessWidget {
   final bool isLoggedIn;
 
   @override
+  State<CarWidget> createState() => _CarWidgetState();
+}
+
+class _CarWidgetState extends State<CarWidget> {
+  final ScrollController _scrollController = ScrollController();
+  Timer? _autoSlideTimer;
+  Timer? _resumeTimer;
+  bool _userIsScrolling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleAutoSlide();
+  }
+
+  @override
+  void didUpdateWidget(covariant CarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cars != widget.cars ||
+        oldWidget.isSkeleton != widget.isSkeleton) {
+      _scheduleAutoSlide();
+    }
+  }
+
+  void _scheduleAutoSlide() {
+    _autoSlideTimer?.cancel();
+    if (widget.isSkeleton || (widget.cars?.length ?? 0) < 2) return;
+    _autoSlideTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _advanceCards(),
+    );
+  }
+
+  void _pauseForUser() {
+    _userIsScrolling = true;
+    _resumeTimer?.cancel();
+  }
+
+  void _resumeAfterUser() {
+    _resumeTimer?.cancel();
+    _resumeTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) _userIsScrolling = false;
+    });
+  }
+
+  void _advanceCards() {
+    if (!mounted || _userIsScrolling || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) return;
+
+    // Two cards are visible in the rail, so advance by a full two-card page.
+    final cardExtent = 47.6.w * 2;
+    final nextOffset = position.pixels + cardExtent;
+    final target = position.pixels >= position.maxScrollExtent - 2
+        ? 0.0
+        : nextOffset.clamp(0.0, position.maxScrollExtent);
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _resumeTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final itemCount = isSkeleton ? 3 : cars?.length ?? 0;
-
+    final itemCount = widget.isSkeleton ? 3 : widget.cars?.length ?? 0;
     return Expanded(
-      child: Skeletonizer(
-        enabled: isSkeleton,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: 3.w),
-          itemCount: itemCount,
-          itemBuilder: (context, index) {
-            final car = isSkeleton ? null : cars![index];
-            final rentPlan = car?.rentalPlan?.firstWhereOrNull(
-              (plan) => plan.periodType == car.displayPlan,
-            );
-            return GestureDetector(
-              onTap: () {
-                if (car != null) {
-                  context.router.push(CarDetailsRoute(carId: car.carId ?? ""));
-                }
-              },
-              child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 0.8.w),
-                width: 46.w,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      children: [
-                        Container(
-                          clipBehavior: Clip.hardEdge,
-                          decoration: BoxDecoration(
-                            boxShadow: isSkeleton
-                                ? null
-                                : [
-                                    BoxShadow(
-                                      color: Color.fromRGBO(24, 37, 94, 0.20),
-                                      blurRadius: 10,
-                                      spreadRadius: -2,
-                                      offset: Offset(0, 8),
-                                    ),
-                                  ],
-                          ),
-                          child: ImageHolder(
-                            image: isSkeleton ? null : car?.images?.first.image,
-                            type: ImageType.car,
-                            fit: BoxFit.cover,
-                            width: 46.w,
-                            height: 36.w,
-                            isLoading: isSkeleton,
-                          ),
-                        ),
-                        if (!isSkeleton && car != null)
-                          PositionedDirectional(
-                            top: 2.w,
-                            start: 4.w,
-                            child: FavoriteButton(
-                              isFavorited: car.isFavorite == true,
-                              car: car,
-                              brandId: car.brand?.id,
-                              param: param,
-                              isLoggedIn: isLoggedIn,
-                            ),
-                          ),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollStartNotification &&
+              notification.dragDetails != null) {
+            _pauseForUser();
+          } else if (notification is UserScrollNotification) {
+            if (notification.direction == ScrollDirection.idle) {
+              _resumeAfterUser();
+            } else {
+              _pauseForUser();
+            }
+          }
+          return false;
+        },
+        child: Skeletonizer(
+          enabled: widget.isSkeleton,
+          child: ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.fromLTRB(3.w, 0, 3.w, 8),
+            itemCount: itemCount,
+            itemBuilder: (context, index) =>
+                _RailCard(car: widget.isSkeleton ? null : widget.cars![index]),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-                        if (car?.featuredCars != null)
-                          PositionedDirectional(
-                            top: 1.w,
-                            end: 1.w,
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 2.w,
-                                vertical: 0.5.w,
-                              ),
-                              decoration: BoxDecoration(
-                                color: context.surfaceTint,
-                                borderRadius: BorderRadiusDirectional.circular(
-                                  100.w,
-                                ),
-                              ),
-                              child: Text(
-                                LocaleKeys.labels_featured.tr(),
-                                style: context.caption.copyWith(
-                                  color: context.surface,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    Gap(1.w),
-                    Text(
-                      isSkeleton ? "Car Title" : car!.title,
-                      style: context.label.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                    ),
-                    Gap(1.w),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isSkeleton ? "2020" : "${car!.feature?.year}",
-                          style: context.overline,
-                        ),
-                        Text(
-                          " - ${isSkeleton ? "Automatic" : car!.feature?.transmission?.transmissionType() ?? ''}",
-                          style: context.overline,
-                        ),
-                      ],
-                    ),
-                    Text.rich(
-                      TextSpan(
-                        text:
-                            "${isSkeleton ? "0" : rentPlan?.price.forMatNumber() ?? ""} ${isSkeleton ? "IQD" : rentPlan?.currency?.getCurrency() ?? ''}",
-                        children: [
-                          TextSpan(
-                            text:
-                                " - ${isSkeleton ? "Hourly" : rentPlan?.periodType.periodPerType() ?? ''}",
-                            style: context.caption,
-                          ),
-                        ],
-                      ),
-                      style: context.caption,
-                    ),
-                  ],
-                ),
+class _RailCard extends StatelessWidget {
+  const _RailCard({this.car});
+  final Car? car;
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = car?.rentalPlan?.firstWhereOrNull(
+      (p) => p.periodType == car!.displayPlan,
+    );
+    final specs = [
+      if (car?.feature?.year != null) '${car!.feature!.year}',
+      if (car?.feature?.transmission != null)
+        car!.feature!.transmission!.transmissionType(),
+    ];
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: .8.w),
+      width: 46.w,
+      child: SpringPressable(
+        semanticsLabel: car?.title,
+        onTap: car == null
+            ? null
+            : () => context.router.push(
+                CarDetailsRoute(carId: car!.carId ?? car!.id),
               ),
-            );
-          },
+        onLongPress: car == null
+            ? null
+            : () => showCarContextPreview(context, car!),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 23.w,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Hero(
+                        tag: carImageHeroTag(
+                          car?.carId ?? car?.id ?? 'skeleton',
+                        ),
+                        child: ImageHolder(
+                          image: car?.images?.firstOrNull?.image,
+                          type: ImageType.car,
+                          fit: BoxFit.cover,
+                          width: 46.w,
+                          height: 23.w,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      if (car?.brand != null)
+                        PositionedDirectional(
+                          top: 10,
+                          end: 10,
+                          child: BrandMark(
+                            brand: car!.brand,
+                            size: 7,
+                            dark: true,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        car?.title ?? 'Car',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.label.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        specs.join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.caption.copyWith(
+                          fontSize: 12,
+                          color: const Color(0xFF667085),
+                        ),
+                      ),
+                      if (plan != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          '${plan.price.forMatNumber()} ${plan.currency?.getCurrency() ?? ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.label.copyWith(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFB5121B),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          plan.periodType.periodPerType(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.caption.copyWith(
+                            fontSize: 12,
+                            color: const Color(0xFF667085),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

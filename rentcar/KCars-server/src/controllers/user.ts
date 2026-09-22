@@ -57,8 +57,8 @@ export const nearBayCars = async (req: Request, res: Response) => {
   const userId = req.userId;
   const radiusInMeters = 5000;
 
-  if (!lat && !long) {
-    return res.status(400).json('Latitude and longitude must be provided');
+  if (lat === undefined || long === undefined) {
+    return res.status(200).json([]);
   }
   const nearbyCarIdsResult = await prisma.$queryRaw<
     { id: string; location: any }[]
@@ -163,6 +163,17 @@ export const filteredCars = async (req: Request, res: Response) => {
   const params: CarFilterPayload = req.body;
   const userId = req.userId;
   const whereFilters = filters(params);
+  // `Company.id` is the foreign key stored on cars. Older mobile builds use
+  // the legacy `Company.companyId` value, so resolve that value before
+  // applying the car filter. This keeps both app versions compatible.
+  let companyId = params.companyId;
+  if (companyId && !companyId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
+    const company = await prisma.company.findFirst({
+      where: { companyId },
+      select: { id: true },
+    });
+    companyId = company?.id ?? companyId;
+  }
   const cars = await prisma.car.findMany({
     cursor: params.cursor ? { id: params.cursor } : undefined,
     skip: params.cursor ? 1 : undefined,
@@ -171,9 +182,9 @@ export const filteredCars = async (req: Request, res: Response) => {
       ...expiredCompanies,
       available: true,
       deletedAt: null,
-      companyId: params.companyId ?? undefined,
+      companyId: companyId ?? undefined,
     },
-    take: params.companyId ? 15 : 50,
+    take: companyId ? 15 : 50,
     orderBy: [{ pinned: 'desc' }, { pinnedSort: 'asc' }, { id: 'desc' }],
     include: carInclude({ userId }),
   });
@@ -687,6 +698,9 @@ export const deleteCompanyReview = async (req: Request, res: Response) => {
 
 export const recentlyViewed = async (req: Request, res: Response) => {
   const userId = req.userId;
+  if (!userId) {
+    return res.status(200).json([]);
+  }
   const viewedCars = await prisma.recentlyViewedCar.findMany({
     orderBy: { id: 'desc' },
     take: 15,
@@ -872,13 +886,21 @@ export const companyReviews = async (req: Request, res: Response) => {
 
 export const getCars = async (req: Request, res: Response) => {
   const { cursor, companyId, type, brand }: CarCompanyPayload = req.body;
+  let resolvedCompanyId = companyId;
+  if (!companyId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
+    const company = await prisma.company.findFirst({
+      where: { companyId },
+      select: { id: true },
+    });
+    resolvedCompanyId = company?.id ?? companyId;
+  }
   const cars = await prisma.car.findMany({
     cursor: cursor ? { id: cursor } : undefined,
     skip: cursor ? 1 : undefined,
     take: 15,
     orderBy: { id: 'desc' },
     where: {
-      companyId: companyId!,
+      companyId: resolvedCompanyId,
       typeId: type ?? undefined,
       brandId: brand ?? undefined,
     },
@@ -909,6 +931,39 @@ export const sliders = async (req: Request, res: Response) => {
   });
 
   res.status(200).json(data);
+};
+
+// Public featured-car feed used by older mobile builds. Admin management
+// remains protected under /api/v1/admin/featuredCars.
+export const featuredCars = async (req: Request, res: Response) => {
+  const data = await prisma.featuredCars.findMany({
+    orderBy: { sort: 'asc' },
+    where: { deletedAt: null },
+    include: {
+      car: {
+        include: {
+          ...carInclude({
+            withLocation: false,
+            withBrand: false,
+            withCompany: false,
+            withFeatured: false,
+          }),
+          feature: true,
+        },
+      },
+      company: { select: { id: true, name: true } },
+    },
+  });
+
+  res.status(200).json(
+    data
+      .filter((item) => item.car)
+      .map((item) => ({
+        ...item.car,
+        company: item.company,
+        featuredCars: item,
+      })),
+  );
 };
 
 export const contact = async (req: Request, res: Response) => {
@@ -970,6 +1025,10 @@ export const companies = async (req: Request, res: Response) => {
       activeDate: { lte: new Date() },
       international: inl,
       delivery: delivery ?? undefined,
+      // Personal owners use a synthetic "… · Personal Cars" company record
+      // internally for their listings. Keep those records out of the public
+      // company directory; their cars remain available in car feeds.
+      name: { not: { contains: 'personal cars', mode: 'insensitive' } },
     },
     orderBy: { id: 'desc' },
     omit: { contact: true, contacted: true, userId: true },

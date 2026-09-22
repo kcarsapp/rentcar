@@ -6,15 +6,16 @@ import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:kcars/configs/app_router.gr.dart';
 import 'package:kcars/core/services/app_icons.dart';
+import 'package:kcars/core/utils/auto_scroll_hook.dart';
 import 'package:kcars/core/utils/extensions.dart';
 import 'package:kcars/core/widget/custom_tabbar.dart';
 import 'package:kcars/core/widget/image_holder.dart';
 import 'package:kcars/core/widget/loading_emoty_state.dart';
+import 'package:kcars/core/widget/section_header.dart';
 import 'package:kcars/features/auth/presentation/riverpod/is_logged_in.dart';
 import 'package:kcars/features/car/data/model/brand.dart';
 import 'package:kcars/features/car/data/model/car.dart';
 import 'package:kcars/features/car/presentation/riverpod/brand_cars.dart';
-import 'package:kcars/features/car/presentation/widget/favroite_button.dart';
 import 'package:kcars/translations/locale_keys.g.dart';
 import 'package:sizer/sizer.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -31,7 +32,7 @@ class BrandCarsView extends HookConsumerWidget {
     ]);
 
     return SizedBox(
-      height: 66.w,
+      height: 78.w,
       child: data.when(
         data: (data) {
           return data.isEmpty
@@ -72,6 +73,8 @@ class CarTabsView extends HookConsumerWidget {
 
     return Column(
       children: [
+        SectionHeader(title: LocaleKeys.labels_brands.tr()),
+        Gap(3.w),
         Skeletonizer(
           enabled: isSkeleton,
           child: CustomTabbar(
@@ -80,7 +83,9 @@ class CarTabsView extends HookConsumerWidget {
             controller: tabControlelr,
             tabs: isSkeleton
                 ? tabs.map((b) => Tab(text: b)).toList()
-                : brands!.map((b) => Tab(text: b.getTitle(locale))).toList(),
+                : brands!
+                      .map((b) => _buildBrandTab(context, b, locale))
+                      .toList(),
           ),
         ),
         Gap(2.w),
@@ -98,25 +103,87 @@ class CarTabsView extends HookConsumerWidget {
                 );
               }
 
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: cars.length,
-                padding: EdgeInsets.symmetric(horizontal: 3.w),
-                itemBuilder: (_, index) {
-                  final car = cars[index];
-                  return CarCard(
-                    car: car,
-                    isSkeleton: isSkeleton,
-                    brandId: isSkeleton ? null : brands?[i].id,
-                    isLoggedIn: isLoggedIn,
-                    locale: locale,
-                  );
-                },
+              return _BrandTabCarsList(
+                cars: cars,
+                isSkeleton: isSkeleton,
+                brandId: isSkeleton ? null : brands?[i].id,
+                isLoggedIn: isLoggedIn,
+                locale: locale,
               );
             }),
           ),
         ),
       ],
+    );
+  }
+
+  Tab _buildBrandTab(BuildContext context, Brand brand, String locale) {
+    final logo = brand.image;
+    if (logo == null || logo.isEmpty) {
+      return Tab(text: brand.getTitle(locale));
+    }
+    return Tab(
+      child: Container(
+        width: 18.w,
+        height: 9.w,
+        padding: EdgeInsets.all(1.5.w),
+        decoration: BoxDecoration(
+          color: context.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(13),
+          boxShadow: [
+            BoxShadow(
+              color: context.primary.withValues(alpha: .08),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: ImageHolder(
+          image: logo,
+          fit: BoxFit.contain,
+          borderRadius: BorderRadius.zero,
+        ),
+      ),
+    );
+  }
+}
+
+class _BrandTabCarsList extends HookWidget {
+  const _BrandTabCarsList({
+    required this.cars,
+    required this.isSkeleton,
+    required this.brandId,
+    required this.isLoggedIn,
+    required this.locale,
+  });
+  final List<Car?> cars;
+  final bool isSkeleton;
+  final String? brandId;
+  final bool isLoggedIn;
+  final String locale;
+
+  @override
+  Widget build(BuildContext context) {
+    final scrollController = useAutoScrollController(
+      enabled: !isSkeleton && cars.length > 1,
+      itemExtent: 94.w + 1.4.w,
+    );
+
+    return ListView.builder(
+      controller: scrollController,
+      scrollDirection: Axis.horizontal,
+      itemCount: cars.length,
+      padding: EdgeInsets.symmetric(horizontal: 3.w),
+      itemBuilder: (_, index) {
+        final car = cars[index];
+        return CarCard(
+          car: car,
+          isSkeleton: isSkeleton,
+          brandId: brandId,
+          isLoggedIn: isLoggedIn,
+          locale: locale,
+        );
+      },
     );
   }
 }
@@ -160,7 +227,7 @@ class CarCard extends StatelessWidget {
                 image: isSkeleton ? null : car!.images?.first.image,
                 width: 94.w,
                 height: 54.w,
-                borderRadius: BorderRadius.circular(6.w),
+                borderRadius: BorderRadius.circular(20),
                 fit: BoxFit.cover,
                 isLoading: isSkeleton,
               ),
@@ -169,9 +236,7 @@ class CarCard extends StatelessWidget {
                   width: 94.w,
                   height: 54.w,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(6.w),
-                    ),
+                    borderRadius: BorderRadius.circular(20),
                     gradient: const LinearGradient(
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
@@ -198,15 +263,17 @@ class CarCard extends StatelessWidget {
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 isSkeleton ? "Loading..." : car!.title,
                                 style: context.title3SemiBold.copyWith(
-                                  color: context.surface,
+                                  color: Colors.white,
                                 ),
-                                maxLines: 2,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              Gap(1.w),
+                              Gap(1.5.w),
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -214,40 +281,98 @@ class CarCard extends StatelessWidget {
                                     isSkeleton
                                         ? "2020"
                                         : "${car!.feature?.year ?? '–'}",
-                                    style: context.label.copyWith(
-                                      color: context.surface,
+                                    style: context.mono.copyWith(
+                                      fontSize: 10.sp,
+                                      color: Colors.white.withValues(
+                                        alpha: .78,
+                                      ),
                                     ),
                                   ),
-                                  Gap(1.w),
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 1.5.w,
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 1.3,
+                                      backgroundColor: Colors.white.withValues(
+                                        alpha: .5,
+                                      ),
+                                    ),
+                                  ),
                                   Text(
                                     isSkeleton
-                                        ? "- automatic"
-                                        : "- ${car!.feature?.transmission?.transmissionType() ?? ''}",
+                                        ? "Automatic"
+                                        : car!.feature?.transmission
+                                                  ?.transmissionType() ??
+                                              '',
                                     style: context.label.copyWith(
-                                      color: context.surface,
+                                      fontSize: 10.sp,
+                                      color: Colors.white.withValues(
+                                        alpha: .78,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                              Gap(1.w),
-                              Text.rich(
-                                TextSpan(
-                                  text:
-                                      "${isSkeleton ? "0" : rentPlan?.price.forMatNumber() ?? ""} ${isSkeleton ? "IQD" : rentPlan?.currency?.getCurrency() ?? ''}",
+                              if (isSkeleton || rentPlan != null) ...[
+                                Gap(2.w),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    TextSpan(
-                                      text:
-                                          " - ${isSkeleton ? "Hourly" : rentPlan?.periodType.periodPerType() ?? ''}",
-                                      style: context.label.copyWith(
-                                        color: context.surface,
+                                    Text(
+                                      isSkeleton
+                                          ? "0"
+                                          : rentPlan!.price.forMatNumber(),
+                                      style: context.mono.copyWith(
+                                        fontSize: 15.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                        height: 1,
+                                      ),
+                                    ),
+                                    Gap(0.8.w),
+                                    Text(
+                                      isSkeleton
+                                          ? "IQD"
+                                          : rentPlan!.currency?.getCurrency() ??
+                                                '',
+                                      style: context.caption.copyWith(
+                                        fontSize: 9.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white.withValues(
+                                          alpha: .9,
+                                        ),
+                                      ),
+                                    ),
+                                    Gap(1.5.w),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 2.w,
+                                        vertical: 0.8.w,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: .16,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          100.w,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isSkeleton
+                                            ? "/ Weekly"
+                                            : "/ ${rentPlan!.periodType.periodPerType()}",
+                                        style: context.caption.copyWith(
+                                          fontSize: 8.5.sp,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                style: context.label.copyWith(
-                                  color: context.surface,
-                                ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
@@ -256,17 +381,6 @@ class CarCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!isSkeleton)
-                PositionedDirectional(
-                  top: 4.w,
-                  start: 6.w,
-                  child: FavoriteButton(
-                    isFavorited: car?.isFavorite == true,
-                    car: car,
-                    brandId: brandId,
-                    isLoggedIn: isLoggedIn,
-                  ),
-                ),
               if (car?.featuredCars != null)
                 PositionedDirectional(
                   top: 4.w,

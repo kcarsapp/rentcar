@@ -38,7 +38,9 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Send Geolocated notifications</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>To be able to select your profile picture</string>
+	<string>Select photos for your profile, car listings, identity verification, and chat.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take car photos and scan optional VIN documents for your listing.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

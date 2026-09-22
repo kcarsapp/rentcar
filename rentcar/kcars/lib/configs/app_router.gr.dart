@@ -91,6 +91,8 @@ import 'package:kcars/features/car/presentation/screens/explorer_map_screen.dart
     as _i27;
 import 'package:kcars/features/car/presentation/screens/favorite_screen.dart'
     as _i28;
+import 'package:kcars/features/chat/presentation/screen/chat_screen.dart'
+    as _i101;
 import 'package:kcars/features/car/presentation/screens/featured_cars_screen.dart'
     as _i29;
 import 'package:kcars/features/car/presentation/screens/filter_screen.dart'
@@ -820,6 +822,22 @@ class FavoriteRoute extends _i76.PageRouteInfo<void> {
     name,
     builder: (data) {
       return const _i28.FavoriteScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [_i101.ChatScreen]
+class ChatRoute extends _i76.PageRouteInfo<void> {
+  const ChatRoute({List<_i76.PageRouteInfo>? children})
+    : super(ChatRoute.name, initialChildren: children);
+
+  static const String name = 'ChatRoute';
+
+  static _i76.PageInfo page = _i76.PageInfo(
+    name,
+    builder: (data) {
+      return const _i101.ChatScreen();
     },
   );
 }

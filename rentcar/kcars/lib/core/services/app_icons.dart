@@ -58,6 +58,8 @@ class AppIcons {
   static const phone = 'assets/icons/call.svg';
   static const filter = 'assets/icons/filter.svg';
   static const mail = 'assets/icons/mail.svg';
+  static const chat = 'assets/icons/chat.svg';
+  static const chatActive = 'assets/icons/chat_active.svg';
 
   static const hourly = 'assets/icons/hourly.svg';
   static const daily = 'assets/icons/daily.svg';

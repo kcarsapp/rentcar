@@ -23,6 +23,58 @@ class HomeAppBar extends HookConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (widget != null) {
+      // The public home uses a two-row header.  Keeping the controls in a
+      // second row prevents the city, advertise and search actions from
+      // being squeezed out of the old single-row AppBar title.
+      return AppBar(
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 112,
+        titleSpacing: 0,
+        title: SafeArea(
+          bottom: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 56,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  child: Row(
+                    children: [
+                      Image.asset(AppIcons.carva, width: 22.w, height: 10.w),
+                      const Spacer(),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          textStyle: context.label.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          backgroundColor: context.primaryContainer,
+                          foregroundColor: context.onSurface,
+                          padding: EdgeInsets.symmetric(horizontal: 3.w),
+                        ),
+                        onPressed: () => showCustomBottomSheet(
+                          context,
+                          SupportsView(),
+                          useRootNavigator: true,
+                        ),
+                        child: Text(LocaleKeys.labels_rentCar.tr()),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 48, child: widget),
+            ],
+          ),
+        ),
+      );
+    }
+
     return AppBar(
       scrolledUnderElevation: 0,
       elevation: 0,
@@ -64,7 +116,8 @@ class HomeAppBar extends HookConsumerWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize =>
+      Size.fromHeight(widget == null ? kToolbarHeight : 112);
 }
 
 class CustomIconButton extends StatelessWidget {

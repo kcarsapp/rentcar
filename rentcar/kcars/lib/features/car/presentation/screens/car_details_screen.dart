@@ -2,10 +2,12 @@ import 'package:auto_route/auto_route.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_it/get_it.dart';
 import 'package:gap/gap.dart';
 import 'package:kcars/configs/app_router.gr.dart';
 import 'package:kcars/configs/image_type.dart';
 import 'package:kcars/core/services/app_icons.dart';
+import 'package:kcars/core/services/api_service.dart';
 import 'package:kcars/core/utils/extensions.dart';
 import 'package:kcars/core/utils/launch_links.dart';
 import 'package:kcars/core/widget/back_button.dart';
@@ -16,10 +18,16 @@ import 'package:kcars/core/widget/image_holder.dart';
 import 'package:kcars/core/widget/profile_container.dart';
 import 'package:kcars/features/booking/presentation/application/book_controller.dart';
 import 'package:kcars/features/booking/presentation/application/book_states.dart';
+import 'package:kcars/features/chat/presentation/screen/chat_screen.dart';
 import 'package:kcars/features/car/data/model/car.dart';
+import 'package:kcars/features/car/domain/repo/car_repo.dart';
 import 'package:kcars/features/car/presentation/riverpod/details_car.dart';
+import 'package:kcars/features/car/presentation/riverpod/favorite_cars.dart';
 import 'package:kcars/features/car/presentation/views/carousal_slider_view.dart';
+import 'package:kcars/features/car/presentation/views/car_reviews_vew.dart';
+import 'package:kcars/features/car/presentation/views/write_car_review.dart';
 import 'package:kcars/features/car/presentation/widget/custom_sheet.dart';
+import 'package:kcars/features/auth/presentation/riverpod/is_logged_in.dart';
 import 'package:kcars/features/company/data/model/contact_statistic.dart';
 import 'package:kcars/features/company/data/model/enums.dart';
 import 'package:kcars/features/company/presentation/views/contacts_view.dart';
@@ -28,6 +36,9 @@ import 'package:kcars/translations/locale_keys.g.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sizer/sizer.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:kcars/core/services/service_location.dart';
+import 'package:kcars/core/ui/ios_interactions.dart';
 
 @RoutePage()
 class CarDetailsScreen extends ConsumerWidget {
@@ -36,6 +47,7 @@ class CarDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final carDetails = ref.watch(detailsCarProvider(carId));
+    final isLoggedIn = ref.watch(isLoggedInProvider);
     final bookController = ref.watch(bookControllerProvider);
     ref.listen(bookControllerProvider, (prev, next) {
       if (next is ContactFailed) {
@@ -63,12 +75,20 @@ class CarDetailsScreen extends ConsumerWidget {
         forceMaterialTransparency: true,
         title: Text(LocaleKeys.screens_detailsCars.tr()),
         centerTitle: true,
+        actions: [
+          if (carDetails.hasValue && carDetails.value != null)
+            IconButton(
+              tooltip: 'Share car',
+              icon: const Icon(Icons.share_outlined),
+              onPressed: () => _shareCar(context, carDetails.value!),
+            ),
+        ],
       ),
       body: CustomScrollView(
         slivers: [
           carDetails.when(
             data: (data) {
-              return CarDetailsView(car: data);
+              return CarDetailsView(car: data, isLoggedIn: isLoggedIn);
             },
             error: (error, stackTrace) => SliverFillRemaining(
               child: Center(child: Text(error.toString())),
@@ -157,10 +177,36 @@ class CarDetailsScreen extends ConsumerWidget {
   }
 }
 
+Future<void> _shareCar(BuildContext context, Car car) async {
+  final id = car.carId ?? car.id;
+  final link = 'https://carvarent.com/car/$id';
+  final year = car.feature?.year;
+  final details = year == null ? '' : '\nYear: $year';
+  try {
+    await SharePlus.instance.share(
+      ShareParams(
+        title: car.title,
+        subject: car.title,
+        text: '${car.title}$details\n$link',
+      ),
+    );
+  } catch (_) {
+    if (context.mounted) {
+      showMessages(context, message: 'Unable to share this car');
+    }
+  }
+}
+
 class CarDetailsView extends StatelessWidget {
-  const CarDetailsView({super.key, this.car, this.isLoading = false});
+  const CarDetailsView({
+    super.key,
+    this.car,
+    this.isLoading = false,
+    this.isLoggedIn = false,
+  });
   final Car? car;
   final bool isLoading;
+  final bool isLoggedIn;
   @override
   Widget build(BuildContext context) {
     return Skeletonizer.sliver(
@@ -179,8 +225,16 @@ class CarDetailsView extends StatelessWidget {
                   : CarousalView(
                       sliders: isLoading ? [] : car?.images ?? [],
                       imageWidth: 92.w,
+                      heroTag: isLoading || car == null
+                          ? null
+                          : carImageHeroTag(car!.carId ?? car!.id),
                     ),
             ),
+            if (!isLoading && car != null)
+              Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 3.w, 4.w, 0),
+                child: DetailFavoriteButton(car: car!, isLoggedIn: isLoggedIn),
+              ),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 4.w),
               child: Column(
@@ -221,6 +275,18 @@ class CarDetailsView extends StatelessWidget {
                             badge: LocaleKeys.labels_litter.tr(),
                             value:
                                 "${isLoading ? "2.5 Litter" : car?.feature?.engCC}",
+                            isSkeleton: isLoading,
+                          ),
+                          FeatureWidget(
+                            icon: AppIcons.profile,
+                            title: LocaleKeys.labels_seat.tr(),
+                            value: "${isLoading ? "5" : car?.feature?.seat}",
+                            isSkeleton: isLoading,
+                          ),
+                          FeatureWidget(
+                            icon: AppIcons.calender,
+                            title: LocaleKeys.labels_year.tr(),
+                            value: "${isLoading ? "2021" : car?.feature?.year}",
                             isSkeleton: isLoading,
                           ),
                           FeatureWidget(
@@ -266,6 +332,17 @@ class CarDetailsView extends StatelessWidget {
                             title: LocaleKeys.labels_fuel.tr(),
                             value:
                                 "${isLoading ? "Diseal" : car?.feature?.fuel?.getFuel()}",
+                            isSkeleton: isLoading,
+                          ),
+                          FeatureWidget(
+                            icon: AppIcons.car,
+                            title: LocaleKeys.labels_type.tr(),
+                            value: isLoading
+                                ? "SUV"
+                                : car?.feature?.type?.getTitle(
+                                        context.locale.languageCode,
+                                      ) ??
+                                      "",
                             isSkeleton: isLoading,
                           ),
                         ],
@@ -387,6 +464,51 @@ class CarDetailsView extends StatelessWidget {
                         ),
                       ),
                     ),
+                    Gap(3.w),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        label: const Text('Chat with owner'),
+                        onPressed: () async {
+                          try {
+                            final result = await GetIt.I<ApiService>()
+                                .post<dynamic>(
+                                  '/chat/start',
+                                  data: {
+                                    'carId': car!.id,
+                                    'companyId': car!.company?.id,
+                                  },
+                                );
+                            final map = result is Map
+                                ? Map<String, dynamic>.from(
+                                    result['conversation'] is Map
+                                        ? result['conversation']
+                                        : result,
+                                  )
+                                : <String, dynamic>{};
+                            if (context.mounted) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      ChatConversationScreen(conversation: map),
+                                ),
+                              );
+                            }
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Chat is unavailable right now',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
                     if (car?.location != null) ...[
                       Gap(6.w),
                       Text(
@@ -411,6 +533,20 @@ class CarDetailsView extends StatelessWidget {
                     ],
                     Gap(6.w),
                   ],
+                  Text(
+                    LocaleKeys.labels_reviews.tr(),
+                    style: context.label2Bold,
+                  ),
+                  if (car != null && car!.reviewCar == true) ...[
+                    Gap(3.w),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          showReviewInput(context, ReviewContent(car: car!)),
+                      icon: const Icon(Icons.rate_review_outlined),
+                      label: Text(LocaleKeys.inputHintText_writeReview.tr()),
+                    ),
+                  ],
+                  if (car != null) CarReviewView(car: car!),
                 ],
               ),
             ),
@@ -437,6 +573,16 @@ class FeatureWidget extends StatelessWidget {
   final String? badge;
   @override
   Widget build(BuildContext context) {
+    final normalizedValue = value.trim().toLowerCase();
+    final isMissing =
+        normalizedValue.isEmpty ||
+        normalizedValue == 'null' ||
+        normalizedValue == '–' ||
+        normalizedValue == '-' ||
+        RegExp(r'^0(?:\.0+)?$').hasMatch(normalizedValue);
+    if (!isSkeleton && isMissing) {
+      return const SizedBox.shrink();
+    }
     return Skeletonizer(
       enabled: isSkeleton,
       child: SizedBox(
@@ -470,6 +616,129 @@ class FeatureWidget extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class DetailFavoriteButton extends ConsumerStatefulWidget {
+  const DetailFavoriteButton({
+    super.key,
+    required this.car,
+    required this.isLoggedIn,
+  });
+
+  final Car car;
+  final bool isLoggedIn;
+
+  @override
+  ConsumerState<DetailFavoriteButton> createState() =>
+      _DetailFavoriteButtonState();
+}
+
+class _DetailFavoriteButtonState extends ConsumerState<DetailFavoriteButton> {
+  late bool _isFavorite = widget.car.isFavorite == true;
+  bool _isSaving = false;
+
+  Future<void> _toggleFavorite() async {
+    if (!widget.isLoggedIn) {
+      showCustomAlert(
+        context,
+        content: LocaleKeys.alertMessages_loginToFavorite.tr(),
+        primaryButtonText: LocaleKeys.buttons_login.tr(),
+        closeButton: true,
+        buttonColor: context.primary,
+        primaryAction: () => context.router.push(LoginRoute()),
+      );
+      return;
+    }
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    final result = await sl<CarRepo>().favoriteCar(widget.car.id);
+    if (!mounted) return;
+    result.fold((failure) => showMessages(context, message: failure.message), (
+      _,
+    ) {
+      setState(() => _isFavorite = !_isFavorite);
+      // Keep Settings > Favorites in sync with this detail action.
+      ref.read(favoriteCarsProvider.notifier).loadInitial();
+    });
+    if (mounted) setState(() => _isSaving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = _isFavorite
+        ? LocaleKeys.bottomNavigation_Favorites.tr()
+        : 'Add to favorites';
+    final subtitle = _isFavorite
+        ? 'Saved for quick access'
+        : 'Keep this car in your saved list';
+    final accent = _isFavorite ? context.primary : context.onSurfaceVariant;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _toggleFavorite,
+        borderRadius: BorderRadius.circular(4.w),
+        child: Ink(
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 3.w),
+          decoration: BoxDecoration(
+            color: _isFavorite
+                ? context.primaryContainer.withValues(alpha: .55)
+                : context.surface,
+            borderRadius: BorderRadius.circular(4.w),
+            border: Border.all(
+              color: _isFavorite
+                  ? context.primary.withValues(alpha: .35)
+                  : context.outline,
+              width: .7,
+            ),
+          ),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                width: 12.w,
+                height: 12.w,
+                decoration: BoxDecoration(
+                  color: _isFavorite
+                      ? context.primary.withValues(alpha: .12)
+                      : context.secondaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: accent,
+                  size: 6.w,
+                ),
+              ),
+              Gap(3.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: context.labelSemiBold),
+                    Gap(.5.w),
+                    Text(subtitle, style: context.caption),
+                  ],
+                ),
+              ),
+              if (_isSaving)
+                SizedBox(
+                  width: 5.w,
+                  height: 5.w,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: accent,
+                  ),
+                )
+              else
+                Icon(Icons.chevron_right_rounded, color: context.outline),
+            ],
+          ),
         ),
       ),
     );

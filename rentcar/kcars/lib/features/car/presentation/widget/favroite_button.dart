@@ -22,6 +22,7 @@ class FavoriteButton extends HookConsumerWidget {
     this.brandId,
     this.param,
     this.isLoggedIn = false,
+    this.color,
   });
   final VoidCallback? onTap;
   final bool isFavorited;
@@ -29,6 +30,7 @@ class FavoriteButton extends HookConsumerWidget {
   final String? brandId;
   final PostLocation? param;
   final bool isLoggedIn;
+  final Color? color;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = useAnimationController(
@@ -68,9 +70,12 @@ class FavoriteButton extends HookConsumerWidget {
       },
       child: ScaleTransition(
         scale: scale,
-        child: IconLoadaer(
-          isFavorited ? AppIcons.favorited : AppIcons.favorite,
-          key: ValueKey(isFavorited),
+        child: SizedBox(
+          child: IconLoadaer(
+            isFavorited ? AppIcons.favorited : AppIcons.favorite,
+            key: ValueKey(isFavorited),
+            color: isFavorited ? null : color,
+          ),
         ),
       ),
     );

@@ -2,16 +2,19 @@ import 'package:auto_route/auto_route.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:kcars/configs/app_router.gr.dart';
+import 'package:kcars/core/ui/ios_interactions.dart';
 import 'package:kcars/core/utils/extensions.dart';
 import 'package:kcars/core/utils/pagin_list_view.dart';
 import 'package:kcars/core/widget/app_bar.dart';
-import 'package:kcars/core/widget/custom_tabbar.dart';
 import 'package:kcars/core/widget/image_holder.dart';
 import 'package:kcars/core/widget/profile_container.dart';
+import 'package:kcars/core/widget/search_feild.dart';
 import 'package:kcars/features/company/data/model/company.dart';
 import 'package:kcars/features/company/presentation/riverpod/all_companies.dart';
+import 'package:kcars/features/company/presentation/widget/company_context_preview.dart';
 import 'package:kcars/translations/locale_keys.g.dart';
 import 'package:sizer/sizer.dart';
 
@@ -20,39 +23,65 @@ class AllCompaniesScreen extends HookConsumerWidget {
   const AllCompaniesScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lcoale = useMemoized(() => context.locale.toLanguageTag(), []);
+    final searchController = useTextEditingController();
+    final query = useState('');
     return Scaffold(
       appBar: HomeAppBar(),
-      body: DefaultTabController(
-        length: 2,
-        child: Column(
-          children: [
-            CustomTabbar(
-              tabAlignment: TabAlignment.fill,
-              key: ValueKey(lcoale),
-              tabs: [
-                Tab(text: LocaleKeys.tabViews_local.tr()),
-                Tab(text: LocaleKeys.tabViews_international.tr()),
+      // The public mobile app now has one company directory. The old
+      // local/international split made the same company appear in two places
+      // and is no longer part of the web experience.
+      body: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(4.w, 2.w, 4.w, 1.w),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SearchFeild(
+                    controller: searchController,
+                    hint: 'Search companies',
+                    onChanged: (value) => query.value = value,
+                  ),
+                ),
+                Gap(2.w),
+                Container(
+                  width: 11.w,
+                  height: 11.w,
+                  decoration: BoxDecoration(
+                    color: context.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(Icons.business_rounded, color: context.primary),
+                ),
               ],
             ),
-            Expanded(
-              child: TabBarView(
-                children: [AllCompaniesView(), AllCompaniesView(inl: true)],
-              ),
-            ),
-          ],
-        ),
+          ),
+          Expanded(child: AllCompaniesView(query: query.value)),
+        ],
       ),
     );
   }
 }
 
 class AllCompaniesView extends ConsumerWidget {
-  const AllCompaniesView({super.key, this.inl = false});
+  const AllCompaniesView({super.key, this.inl = false, this.query = ''});
   final bool inl;
+  final String query;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final companiesAsync = ref.watch(allCompaniesProvider(inl));
+    final normalizedQuery = query.trim().toLowerCase();
+    final filteredState = companiesAsync.copyWith(
+      items: companiesAsync.items
+          .where(
+            (company) =>
+                !_isPersonalCompany(company) &&
+                (normalizedQuery.isEmpty ||
+                    company.name.toLowerCase().contains(normalizedQuery)),
+          )
+          .toList(),
+      error: companiesAsync.error,
+    );
     return GridPagingSliverList(
       emptyMessage: LocaleKeys.empty_emptyCompany.tr(),
       padding: EdgeInsets.symmetric(
@@ -61,11 +90,23 @@ class AllCompaniesView extends ConsumerWidget {
       onRefresh: () =>
           ref.read(allCompaniesProvider(inl).notifier).loadInitial(),
       onLoadMore: () => ref.read(allCompaniesProvider(inl).notifier).loadMore(),
-      state: companiesAsync,
+      state: filteredState,
       itemBuilder: (context, item, index) {
         return CompanyWidget(company: item);
       },
     );
+  }
+
+  /// Personal owners use a synthetic Company record internally so their cars
+  /// can participate in the rental flow. They belong in car results, not the
+  /// public company directory.
+  bool _isPersonalCompany(Company company) {
+    final name = company.name.trim().toLowerCase();
+    return company.profile?.isPersonal == true ||
+        name.endsWith('· personal cars') ||
+        name.endsWith('· personal car') ||
+        name.endsWith(' personal cars') ||
+        name.endsWith(' personal car');
   }
 }
 
@@ -74,10 +115,12 @@ class CompanyWidget extends StatelessWidget {
   final Company company;
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return SpringPressable(
+      semanticsLabel: company.name,
       onTap: () {
         context.router.push(CompanyDetailsRoute(companyId: company.id));
       },
+      onLongPress: () => showCompanyContextPreview(context, company),
       child: Material(
         clipBehavior: Clip.hardEdge,
         shape: ContinuousRectangleBorder(
@@ -85,7 +128,7 @@ class CompanyWidget extends StatelessWidget {
           side: BorderSide(color: context.surfaceContainer, width: 0.3),
         ),
         child: ColoredBox(
-          color: context.secondaryContainer,
+          color: Colors.white,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

@@ -30,7 +30,9 @@ class AllCompanies extends _$AllCompanies {
   }
 
   Future<void> loadInitial() async {
-    final param = CompanyCursor(inl: inl);
+    // The public directory is unified; do not filter it into local or
+    // international tabs anymore.
+    final param = CompanyCursor(inl: null);
     final result = await _companyRepo.allCompanies(param);
 
     result.fold(
@@ -52,7 +54,7 @@ class AllCompanies extends _$AllCompanies {
   Future<void> loadMore() async {
     if (state.isLoading || !state.hasNextPage) return;
     state = state.copyWith(isLoading: true);
-    final param = CompanyCursor(cursor: state.items.last.id, inl: inl);
+    final param = CompanyCursor(cursor: state.items.last.id, inl: null);
     final result = await _companyRepo.allCompanies(param);
 
     result.fold(
