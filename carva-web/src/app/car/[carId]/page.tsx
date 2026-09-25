@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { Icon, type IconName } from "@/components/Icon";
 import { Button, Rating, PageLoading, EmptyState, useEnumLabel, SectionHeader } from "@/components/ui";
@@ -17,7 +17,14 @@ import { imageUrl } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { toast } from "@/components/toast";
 import { StartChatButton } from "@/components/ChatActions";
-import type { Car } from "@/lib/types";
+import type { Car, Contact } from "@/lib/types";
+
+const CONTACT_ICON: Record<string, IconName> = {
+  phone: "call",
+  whatsapp: "whatsapp",
+  viber: "phone",
+  email: "mail",
+};
 
 function Spec({ icon, label, value }: { icon: IconName; label: string; value?: string | number | null }) {
   if (value === null || value === undefined || value === "") return null;
@@ -36,9 +43,9 @@ export default function CarDetailsPage() {
   const { carId } = useParams<{ carId: string }>();
   const { t, tr, num } = useI18n();
   const e = useEnumLabel();
-  const router = useRouter();
   const { data: car, loading, error } = useAsync<Car>(() => userApi.carDetails(carId), [carId]);
   const [contacting, setContacting] = useState(false);
+  const [contactsOpen, setContactsOpen] = useState(false);
 
   if (loading) return <AppShell><PageLoading /></AppShell>;
   if (error || !car)
@@ -72,6 +79,22 @@ export default function CarDetailsPage() {
     } finally {
       setContacting(false);
     }
+  }
+
+  function openContact(contact: Contact) {
+    if (!car) return;
+    const value = `${contact.countrCode ?? ""}${contact.value}`.replace(/\s/g, "");
+    void userApi.contact({
+      type: contact.type,
+      companyId: car.companyId,
+      contactId: contact.id,
+      carId: car.id,
+    }).catch(() => undefined);
+
+    if (contact.type === "email") window.location.href = `mailto:${contact.value}`;
+    else if (contact.type === "whatsapp") window.open(`https://wa.me/${value.replace("+", "")}`, "_blank", "noopener,noreferrer");
+    else if (contact.type === "viber") window.location.href = `viber://chat?number=${encodeURIComponent(value)}`;
+    else window.location.href = `tel:${value}`;
   }
 
   return (
@@ -120,8 +143,8 @@ export default function CarDetailsPage() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <Button onClick={() => router.push(`/booking?car=${car.carId}`)} className="flex-1">
-                {t("buttons.reserveNow")}
+              <Button onClick={() => setContactsOpen(true)} className="flex-1">
+                <Icon name="call" size={18} color="#fff" /> {t("buttons.contact")}
               </Button>
               <Button variant="secondary" onClick={whatsapp} loading={contacting} className="bg-tint hover:bg-tint/90">
                 <Icon name="whatsapp" size={18} color="#fff" /> {t("buttons.whatsapp")}
@@ -135,6 +158,83 @@ export default function CarDetailsPage() {
                 className="flex-1"
               />
             </div>
+
+            {contactsOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 sm:items-center"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t("buttons.contact")}
+                onClick={() => setContactsOpen(false)}
+              >
+                <div
+                  className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-extrabold text-on-surface">{t("buttons.contact")}</h2>
+                      <p className="mt-0.5 text-sm text-muted">{car.company?.name ?? car.title}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setContactsOpen(false)}
+                      className="grid h-9 w-9 place-items-center rounded-full bg-surface-lowest"
+                      aria-label={t("buttons.close")}
+                    >
+                      <Icon name="cancel" size={18} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(car.company?.contacts ?? []).map((contact) => (
+                      <button
+                        key={contact.id}
+                        type="button"
+                        onClick={() => openContact(contact)}
+                        className="flex w-full items-center gap-3 rounded-2xl border border-surface-low px-4 py-3 text-start transition hover:bg-surface-lowest"
+                      >
+                        <span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container">
+                          <Icon name={CONTACT_ICON[contact.type] ?? "call"} size={19} color="#3957d7" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs capitalize text-muted">{contact.type}</span>
+                          <span className="block truncate font-semibold text-on-surface">
+                            {contact.countrCode ?? ""}{contact.value}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                    {(!car.company?.contacts || car.company.contacts.length === 0) && car.contact && (
+                      <a
+                        href={`tel:${car.contact.replace(/\s/g, "")}`}
+                        className="flex w-full items-center gap-3 rounded-2xl border border-surface-low px-4 py-3 text-start transition hover:bg-surface-lowest"
+                      >
+                        <span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container">
+                          <Icon name="call" size={19} color="#3957d7" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs text-muted">{t("buttons.contact")}</span>
+                          <span className="block truncate font-semibold text-on-surface">{car.contact}</span>
+                        </span>
+                      </a>
+                    )}
+                    {(!car.company?.contacts || car.company.contacts.length === 0) && !car.contact && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContactsOpen(false);
+                          toast(t("empty.noData"), "info");
+                        }}
+                        className="w-full rounded-2xl bg-surface-lowest px-4 py-5 text-center text-sm text-muted"
+                      >
+                        {t("empty.noData")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
