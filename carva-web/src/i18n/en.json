@@ -547,6 +547,7 @@
     }
   },
   "web": {
+    "chat": "Messages",
     "signInSubtitle": "Sign in to continue",
     "signUpSubtitle": "Create your account in seconds",
     "resetSubtitle": "Reset your password",

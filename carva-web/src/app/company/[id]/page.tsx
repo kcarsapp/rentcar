@@ -14,6 +14,7 @@ import { userApi } from "@/lib/services";
 import { useI18n } from "@/i18n";
 import { imageUrl } from "@/lib/api";
 import type { Car, Company, Contact } from "@/lib/types";
+import { StartChatButton } from "@/components/ChatActions";
 
 const CONTACT_ICON: Record<string, IconName> = {
   phone: "call",
@@ -151,6 +152,10 @@ export default function CompanyDetailsPage() {
             {company.contacts.map((c) => <ContactButton key={c.id} c={c} companyId={company.id} />)}
           </div>
         )}
+
+        <div className="mt-4">
+          <StartChatButton target={{ companyId: company.id, userId: company.userId ?? company.profile?.userId }} />
+        </div>
 
         {loc?.lat && loc?.long && (
           <div className="mt-5">

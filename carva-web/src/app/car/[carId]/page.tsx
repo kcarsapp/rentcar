@@ -16,6 +16,7 @@ import { useI18n } from "@/i18n";
 import { imageUrl } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { toast } from "@/components/toast";
+import { StartChatButton } from "@/components/ChatActions";
 import type { Car } from "@/lib/types";
 
 function Spec({ icon, label, value }: { icon: IconName; label: string; value?: string | number | null }) {
@@ -125,6 +126,14 @@ export default function CarDetailsPage() {
               <Button variant="secondary" onClick={whatsapp} loading={contacting} className="bg-tint hover:bg-tint/90">
                 <Icon name="whatsapp" size={18} color="#fff" /> {t("buttons.whatsapp")}
               </Button>
+              <StartChatButton
+                target={{
+                  carId: car.id,
+                  companyId: car.companyId,
+                  userId: car.company?.userId ?? car.company?.profile?.userId,
+                }}
+                className="flex-1"
+              />
             </div>
           </div>
         </div>
